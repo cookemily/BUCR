@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>BUCR</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet-search@3.0.9/dist/leaflet-search.min.css" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    
+    <style>
+        :root {
+            --bu-green: #005a43;
+            --soft-green: #f0f7f4;
+            --text-main: #333;
+            --text-muted: #666;
+        }
+
+        body { 
+            margin: 0; padding: 0; 
+            font-family: 'Inter', 'Segoe UI', sans-serif; 
+            display: flex; overflow: hidden; 
+            color: var(--text-main);
+        }
+        
+        #sidebar { 
+            width: 360px; height: 100vh; 
+            background: #fff; border-right: 2px solid var(--bu-green); 
+            display: flex; flex-direction: column; z-index: 10; 
+        }
+
+        #header-area {
+            padding: 25px;
+            background: var(--soft-green);
+            border-bottom: 1px solid #ddd;
+        }
+
+        .tab-container { display: flex; background: #eee; }
+        .tab-btn { 
+            flex: 1; padding: 12px; border: none; background: #eee; 
+            cursor: pointer; font-weight: 700; color: var(--bu-green);
+            font-family: 'Inter', sans-serif; transition: 0.2s;
+        }
+        .tab-btn.active { background: var(--bu-green); color: white; }
+
+        #sidebar-content { flex-grow: 1; padding: 20px; overflow-y: auto; }
+        #map { height: 100vh; flex-grow: 1; position: relative; }
+        
+        h2 { color: var(--bu-green); margin: 0 0 10px 0; font-size: 1.5em; letter-spacing: -0.5px; }
+        h3 { color: var(--bu-green); font-size: 0.9em; text-transform: uppercase; margin-top: 0; letter-spacing: 1px; }
+        p { font-size: 0.9em; line-height: 1.5; color: var(--text-muted); }
+
+        .card { 
+            background: #fff; border: 1px solid #eee; padding: 15px; 
+            border-radius: 10px; margin-bottom: 15px; 
+            border-left: 5px solid var(--bu-green);
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+        }
+        .leader-item { cursor: pointer; transition: 0.2s; }
+        .leader-item:hover { transform: translateY(-2px); box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+        
+        .title-bold { font-weight: 700; font-size: 1.05em; display: block; margin-bottom: 5px; }
+        .score-row { font-size: 0.85em; font-weight: 600; color: var(--bu-green); }
+
+        .popup-form { min-width: 260px; padding: 5px; }
+        .popup-form h3 { border-bottom: 2px solid var(--bu-green); padding-bottom: 5px; margin-bottom: 10px; }
+        .category-tag { font-size: 0.75em; color: var(--text-muted); font-weight: 700; text-transform: uppercase; }
+        
+        .popup-form label { font-size: 0.85em; font-weight: 600; display: inline-block; width: 110px; margin-top: 8px; }
+        .popup-form input { width: 45px; border: 1px solid #ccc; border-radius: 4px; padding: 3px; }
+        .popup-form textarea { width: 100%; height: 70px; margin-top: 10px; border: 1px solid #ccc; border-radius: 6px; padding: 8px; box-sizing: border-box; font-family: inherit; }
+        .popup-form button { background: var(--bu-green); color: white; border: none; padding: 12px; border-radius: 6px; cursor: pointer; width: 100%; margin-top: 10px; font-weight: 700; }
+        
+        .review-block { border-top: 1px solid #eee; padding: 12px 0; margin-top: 10px; }
+        .review-meta { font-size: 0.75em; color: var(--bu-green); font-weight: 700; margin-bottom: 4px; }
+        .review-text { font-size: 0.9em; font-style: italic; color: #444; }
+        .review-img { width: 100%; border-radius: 8px; margin-top: 10px; display: block; border: 1px solid #ddd; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+    </style>
+</head>
+<body>
+
+    <div id="sidebar">
+        <div id="header-area">
+            <h2>Binghamton University Chair Repository</h2>
+            <p>A student-led directory of campus's unique seating selection. Please use the "Upload" link and "Copy Image Address" for photos (it will end in .jpg or .png).</p>
+        </div>
+
+        <div class="tab-container">
+            <button class="tab-btn active" id="btn-leader" onclick="showTab('leaderboard')">Leaderboard</button>
+            <button class="tab-btn" id="btn-archive" onclick="showTab('archive')">All Reviews</button>
+        </div>
+
+        <div id="sidebar-content"></div>
+    </div>
+
+    <div id="map"></div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/leaflet-search@3.0.9/dist/leaflet-search.min.js"></script>
+    
+    <script>
+        const SUPABASE_URL = 'https://ruybktzajoydmbbfotgo.supabase.co';
+        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJ1eWJrdHpham95ZG1iYmZvdGdvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk2MjI3MDcsImV4cCI6MjA4NTE5ODcwN30.Qdoqq_PZ7juObHGc_j_0uwAgQMjFAtEIsjFD1e2XvN0';
+        const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+        var light = L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', { attribution: '© CARTO' });
+        var dark = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { attribution: '© CARTO' });
+
+        var map = L.map('map', { center: [42.088, -75.967], zoom: 15, layers: [dark] });
+
+        var buildingsGroup = L.layerGroup().addTo(map);
+        var parkingGroup = L.layerGroup().addTo(map);
+        var trailsGroup = L.layerGroup().addTo(map);
+        var allSearchable = L.featureGroup().addTo(map);
+
+        L.control.layers({ "Light": light, "Dark": dark }, { 
+            "Buildings": buildingsGroup, 
+            "Parking": parkingGroup, 
+            "Trails": trailsGroup 
+        }, { collapsed: false }).addTo(map);
+
+        const buildingLayers = {};
+        let currentTab = 'leaderboard';
+
+        function getBuildingColor(name) {
+            if (!name) return '#005a43';
+            const b = name.toLowerCase();
+            if (['lehman', 'hughes', 'smith', 'cleveland', 'roosevelt'].some(x => b.includes(x))) return '#ff69b4';
+            if (['bingham', 'endicott', 'broome', 'delaware'].some(x => b.includes(x))) return '#ff0000';
+            if (['marcy', 'hunter', 'windham', 'cascade'].some(x => b.includes(x))) return '#800080';
+            if (['digman', "o'connor", 'johnson', 'rafuse', 'old rafuse', 'old digman'].some(x => b.includes(x))) return '#0000ff';
+            if (['mohawk', 'cayuga', 'oneida', 'seneca', 'onondaga'].some(x => b.includes(x))) return '#ffa500';
+            return '#005a43';
+        }
+
+        async function refreshSidebar() {
+            const { data } = await supabaseClient.from('reviews').select('*').eq('is_approved', true).order('created_at', { ascending: false });
+            const content = document.getElementById('sidebar-content');
+            if (!data) return;
+
+            if (currentTab === 'leaderboard') {
+                const scores = {};
+                data.forEach(r => {
+                    if (!scores[r.location]) scores[r.location] = { sum: 0, count: 0 };
+                    scores[r.location].sum += (r.comfort + (r.creativity || 0) + (r['study-ability'] || 0) + (r.atmosphere || 0)) / 4;
+                    scores[r.location].count++;
+                });
+                const sorted = Object.keys(scores).map(l => ({ name: l, avg: (scores[l].sum / scores[l].count).toFixed(2) }))
+                    .sort((a, b) => b.avg - a.avg).slice(0, 10);
+                
+                content.innerHTML = sorted.map((loc, i) => `
+                    <div class="card leader-item" onclick="zoomToBuilding('${loc.name}')">
+                        <span class="title-bold">Rank ${i+1}: ${loc.name}</span>
+                        <div class="score-row">Overall Rating: ${loc.avg} / 5.00</div>
+                    </div>`).join('');
+            } else {
+                content.innerHTML = data.map(r => `
+                    <div class="card">
+                        <span class="title-bold">${r.location}</span>
+                        <div class="review-meta">Comfort: ${r.comfort} | Study: ${r['study-ability']} | Creativity: ${r.creativity} | Atmosphere: ${r.atmosphere}</div>
+                        <div class="review-text">"${r.comment}"</div>
+                        ${r.photo_url ? `<a href="${r.photo_url}" target="_blank"><img src="${r.photo_url}" class="review-img"></a>` : ''}
+                    </div>`).join('');
+            }
+        }
+
+        window.showTab = (tab) => {
+            currentTab = tab;
+            document.getElementById('btn-leader').classList.toggle('active', tab === 'leaderboard');
+            document.getElementById('btn-archive').classList.toggle('active', tab === 'archive');
+            refreshSidebar();
+        };
+
+        window.zoomToBuilding = (name) => {
+            const layer = buildingLayers[name];
+            if (layer) { map.flyTo(layer.getBounds().getCenter(), 18); layer.openPopup(); }
+        };
+
+        async function saveReview(locationName) {
+            if (document.getElementById('hp_field').value.length > 0) return;
+            const vals = {
+                comfort: parseInt(document.getElementById('comfort').value),
+                creativity: parseInt(document.getElementById('creativity').value),
+                "study-ability": parseInt(document.getElementById('study').value),
+                atmosphere: parseInt(document.getElementById('atmosphere').value),
+                comment: document.getElementById('comment').value,
+                photo_url: document.getElementById('photo_url').value,
+                location: locationName, is_approved: false 
+            };
+            const { error } = await supabaseClient.from('reviews').insert([vals]);
+            if (error) alert(error.message); else { alert("Submitted for moderation!"); map.closePopup(); }
+        }
+
+        async function loadReviews(locationName) {
+            const { data } = await supabaseClient.from('reviews').select('*').eq('location', locationName).eq('is_approved', true).order('created_at', { ascending: false });
+            const container = document.getElementById('recent-reviews');
+            if (data && data.length > 0) {
+                container.innerHTML = data.map(r => `
+                    <div class="review-block">
+                        <div class="review-meta">Comfort: ${r.comfort} | Study: ${r['study-ability']} | Creative: ${r.creativity} | Atmos: ${r.atmosphere}</div>
+                        <div class="review-text">"${r.comment}"</div>
+                        ${r.photo_url ? `<img src="${r.photo_url}" class="review-img" onclick="window.open('${r.photo_url}')">` : ''}
+                    </div>`).join('');
+            } else { container.innerHTML = "<p>No verified reviews yet.</p>"; }
+        }
+
+        function onEachFeature(feature, layer) {
+            let props = feature.properties;
+            let name = props.Building || props.Loc_ID || props.Name1 || "Campus Site";
+            if (props.Loc_ID) name += " Lot";
+            
+            let cat = props.Community && props.Community !== "State" ? props.Community : "Campus Building";
+            if (props.Loc_ID) cat = "Parking";
+            if (props.Name1) cat = "Nature Trail";
+
+            if (props.Building) buildingLayers[name] = layer;
+            feature.properties.searchName = name;
+            layer.bindTooltip(name, { sticky: true });
+            allSearchable.addLayer(layer);
+
+            layer.on('click', function() {
+                if (props.Building) {
+                    const content = `<div class="popup-form">
+                        <div class="category-tag">${cat}</div><h3>${name}</h3>
+                        <label>Comfort:</label> <input type="number" id="comfort" min="1" max="5" value="3"><br>
+                        <label>Creativity:</label> <input type="number" id="creativity" min="1" max="5" value="3"><br>
+                        <label>Study-ability:</label> <input type="number" id="study" min="1" max="5" value="3"><br>
+                        <label>Atmosphere:</label> <input type="number" id="atmosphere" min="1" max="5" value="3"><br>
+                        <label>Photo Link <a href="https://imgur.com/upload" target="_blank" style="font-size:0.8em; color:var(--bu-green); text-decoration:underline;">(Upload)</a>:</label> 
+                        <input type="text" id="photo_url" placeholder="Direct link ends in .jpg or .png">
+                        <input type="text" id="hp_field" style="display:none !important">
+                        <textarea id="comment" placeholder="Describe the seating..."></textarea><br>
+                        <button onclick="saveReview('${name}')">SUBMIT</button>
+                        <div id="recent-reviews" style="max-height:220px; overflow-y:auto; margin-top:10px;"></div></div>`;
+                    layer.bindPopup(content).openPopup(); loadReviews(name);
+                }
+            });
+        }
+
+        async function loadGeoJSON(url, group, type) {
+            const res = await fetch(url);
+            const data = await res.json();
+            L.geoJSON(data, { 
+                style: function(feature) {
+                    if (type === 'building') return { color: 'white', weight: 0.4, opacity: 0.4, fillColor: getBuildingColor(feature.properties.Building), fillOpacity: 0.6 };
+                    if (type === 'trail') return { color: '#228B22', weight: 1.5, dashArray: '5, 10', opacity: 0.6 };
+                    return { weight: 0, fillColor: '#808080', fillOpacity: 0.4 };
+                },
+                onEachFeature: onEachFeature 
+            }).addTo(group);
+        }
+
+        loadGeoJSON('campus.geojson', buildingsGroup, 'building');
+        loadGeoJSON('parking.geojson', parkingGroup, 'parking');
+        loadGeoJSON('np.geojson', trailsGroup, 'trail');
+
+        var searchControl = new L.Control.Search({ layer: allSearchable, propertyName: 'searchName', marker: false });
+        map.addControl(searchControl);
+        refreshSidebar();
+    </script>
+</body>
+</html>
