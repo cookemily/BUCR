@@ -2,6 +2,7 @@
 <html>
 <head>
     <title>BUCR</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet-search@3.0.9/dist/leaflet-search.min.css" />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
@@ -18,10 +19,14 @@
         body { 
             margin: 0; padding: 0; 
             font-family: 'Inter', 'Segoe UI', sans-serif; 
-            display: flex; overflow: hidden; 
+            display: flex; 
+            flex-direction: row; /* Desktop Default */
+            overflow: hidden; 
             color: var(--text-main);
+            height: 100vh;
         }
         
+        /* Sidebar Layout */
         #sidebar { 
             width: 360px; height: 100vh; 
             background: #fff; border-right: 2px solid var(--bu-green); 
@@ -39,6 +44,7 @@
             flex: 1; padding: 12px; border: none; background: #eee; 
             cursor: pointer; font-weight: 700; color: var(--bu-green);
             font-family: 'Inter', sans-serif; transition: 0.2s;
+            font-size: 14px; /* Standard Desktop */
         }
         .tab-btn.active { background: var(--bu-green); color: white; }
 
@@ -49,6 +55,7 @@
         h3 { color: var(--bu-green); font-size: 0.9em; text-transform: uppercase; margin-top: 0; letter-spacing: 1px; }
         p { font-size: 0.9em; line-height: 1.5; color: var(--text-muted); }
 
+        /* Card Styles */
         .card { 
             background: #fff; border: 1px solid #eee; padding: 15px; 
             border-radius: 10px; margin-bottom: 15px; 
@@ -61,19 +68,49 @@
         .title-bold { font-weight: 700; font-size: 1.05em; display: block; margin-bottom: 5px; }
         .score-row { font-size: 0.85em; font-weight: 600; color: var(--bu-green); }
 
+        /* Popups & Mobile Ergonomics */
         .popup-form { min-width: 260px; padding: 5px; }
-        .popup-form h3 { border-bottom: 2px solid var(--bu-green); padding-bottom: 5px; margin-bottom: 10px; }
-        .category-tag { font-size: 0.75em; color: var(--text-muted); font-weight: 700; text-transform: uppercase; }
-        
         .popup-form label { font-size: 0.85em; font-weight: 600; display: inline-block; width: 110px; margin-top: 8px; }
-        .popup-form input { width: 45px; border: 1px solid #ccc; border-radius: 4px; padding: 3px; }
-        .popup-form textarea { width: 100%; height: 70px; margin-top: 10px; border: 1px solid #ccc; border-radius: 6px; padding: 8px; box-sizing: border-box; font-family: inherit; }
-        .popup-form button { background: var(--bu-green); color: white; border: none; padding: 12px; border-radius: 6px; cursor: pointer; width: 100%; margin-top: 10px; font-weight: 700; }
+        
+        /* 16px font-size prevents iPhone auto-zoom */
+        .popup-form input, .popup-form textarea { 
+            font-size: 16px; 
+            border: 1px solid #ccc; border-radius: 4px; padding: 5px; 
+        }
+        .popup-form input[type="number"] { width: 45px; }
+        .popup-form textarea { width: 100%; height: 70px; margin-top: 10px; box-sizing: border-box; }
+        
+        .popup-form button { 
+            background: var(--bu-green); color: white; border: none; 
+            padding: 12px; border-radius: 6px; cursor: pointer; 
+            width: 100%; margin-top: 10px; font-weight: 700;
+            font-size: 16px;
+        }
         
         .review-block { border-top: 1px solid #eee; padding: 12px 0; margin-top: 10px; }
         .review-meta { font-size: 0.75em; color: var(--bu-green); font-weight: 700; margin-bottom: 4px; }
         .review-text { font-size: 0.9em; font-style: italic; color: #444; }
-        .review-img { width: 100%; border-radius: 8px; margin-top: 10px; display: block; border: 1px solid #ddd; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+        .review-img { 
+            width: 100%; border-radius: 8px; margin-top: 10px; 
+            display: block; border: 1px solid #ddd; 
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1); 
+            cursor: pointer;
+        }
+
+        /* RESPONSIVE IPHONE STYLES */
+        @media (max-width: 768px) {
+            body { flex-direction: column; }
+            #sidebar { 
+                width: 100%; height: 50vh; 
+                border-right: none; border-top: 3px solid var(--bu-green); 
+                order: 2; 
+            }
+            #map { height: 50vh; width: 100%; order: 1; }
+            .tab-btn { padding: 16px; font-size: 16px; }
+            .popup-form { min-width: 80vw; }
+            #header-area { padding: 15px; }
+            h2 { font-size: 1.2em; }
+        }
     </style>
 </head>
 <body>
@@ -105,7 +142,12 @@
         var light = L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', { attribution: '© CARTO' });
         var dark = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { attribution: '© CARTO' });
 
-        var map = L.map('map', { center: [42.088, -75.967], zoom: 15, layers: [dark] });
+        var map = L.map('map', { 
+            center: [42.088, -75.967], 
+            zoom: 15, 
+            layers: [dark],
+            tap: true // Mobile touch fix
+        });
 
         var buildingsGroup = L.layerGroup().addTo(map);
         var parkingGroup = L.layerGroup().addTo(map);
@@ -172,7 +214,11 @@
 
         window.zoomToBuilding = (name) => {
             const layer = buildingLayers[name];
-            if (layer) { map.flyTo(layer.getBounds().getCenter(), 18); layer.openPopup(); }
+            if (layer) { 
+                map.flyTo(layer.getBounds().getCenter(), 18); 
+                layer.openPopup(); 
+                if (window.innerWidth <= 768) { document.getElementById('sidebar').scrollTo(0,0); }
+            }
         };
 
         async function saveReview(locationName) {
@@ -207,7 +253,6 @@
             let props = feature.properties;
             let name = props.Building || props.Loc_ID || props.Name1 || "Campus Site";
             if (props.Loc_ID) name += " Lot";
-            
             let cat = props.Community && props.Community !== "State" ? props.Community : "Campus Building";
             if (props.Loc_ID) cat = "Parking";
             if (props.Name1) cat = "Nature Trail";
@@ -225,10 +270,10 @@
                         <label>Creativity:</label> <input type="number" id="creativity" min="1" max="5" value="3"><br>
                         <label>Study-ability:</label> <input type="number" id="study" min="1" max="5" value="3"><br>
                         <label>Atmosphere:</label> <input type="number" id="atmosphere" min="1" max="5" value="3"><br>
-                        <label>Photo Link <a href="https://imgur.com/upload" target="_blank" style="font-size:0.8em; color:var(--bu-green); text-decoration:underline;">(Upload)</a>:</label> 
-                        <input type="text" id="photo_url" placeholder="Direct link ends in .jpg or .png">
+                        <label>Photo Link <a href="https://imgur.com/upload" target="_blank" style="font-size:0.8em; color:var(--bu-green);">(Upload)</a>:</label> 
+                        <input type="text" id="photo_url" placeholder="Direct link ends in .jpg/.png">
                         <input type="text" id="hp_field" style="display:none !important">
-                        <textarea id="comment" placeholder="Describe the seating..."></textarea><br>
+                        <textarea id="comment" placeholder="Seating notes..."></textarea><br>
                         <button onclick="saveReview('${name}')">SUBMIT</button>
                         <div id="recent-reviews" style="max-height:220px; overflow-y:auto; margin-top:10px;"></div></div>`;
                     layer.bindPopup(content).openPopup(); loadReviews(name);
@@ -240,9 +285,9 @@
             const res = await fetch(url);
             const data = await res.json();
             L.geoJSON(data, { 
-                style: function(feature) {
-                    if (type === 'building') return { color: 'white', weight: 0.4, opacity: 0.4, fillColor: getBuildingColor(feature.properties.Building), fillOpacity: 0.6 };
-                    if (type === 'trail') return { color: '#228B22', weight: 1.5, dashArray: '5, 10', opacity: 0.6 };
+                style: function(f) {
+                    if (type === 'building') return { color: 'white', weight: 0.4, opacity: 0.4, fillColor: getBuildingColor(f.properties.Building), fillOpacity: 0.6 };
+                    if (type === 'trail') return { color: '#228B22', weight: 2, dashArray: '5, 10', opacity: 0.6 };
                     return { weight: 0, fillColor: '#808080', fillOpacity: 0.4 };
                 },
                 onEachFeature: onEachFeature 
