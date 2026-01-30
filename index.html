@@ -9,109 +9,91 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     
     <style>
-        :root {
-            --bu-green: #005a43;
-            --soft-green: #f0f7f4;
-            --text-main: #333;
-            --text-muted: #666;
-        }
+    :root {
+        --bu-green: #005a43;
+        --soft-green: #f0f7f4;
+        --text-main: #333;
+        --text-muted: #666;
+    }
 
-        body { 
-            margin: 0; padding: 0; 
-            font-family: 'Inter', 'Segoe UI', sans-serif; 
-            display: flex; 
-            flex-direction: row; /* Desktop Default */
-            overflow: hidden; 
-            color: var(--text-main);
-            height: 100vh;
-        }
-        
-        /* Sidebar Layout */
+    body { 
+        margin: 0; padding: 0; 
+        font-family: 'Inter', 'Segoe UI', sans-serif; 
+        display: flex; 
+        flex-direction: row; 
+        overflow: hidden; 
+        color: var(--text-main);
+        height: 100vh;
+        height: 100dvh; /* Modern mobile fix */
+    }
+    
+    #sidebar { 
+        width: 360px; height: 100%; 
+        background: #fff; border-right: 2px solid var(--bu-green); 
+        display: flex; flex-direction: column; z-index: 100; /* Higher z-index */
+    }
+
+    #header-area {
+        padding: 20px;
+        background: var(--soft-green);
+        border-bottom: 1px solid #ddd;
+    }
+
+    .tab-container { display: flex; background: #eee; flex-shrink: 0; }
+    .tab-btn { 
+        flex: 1; padding: 12px; border: none; background: #eee; 
+        cursor: pointer; font-weight: 700; color: var(--bu-green);
+        font-family: 'Inter', sans-serif; transition: 0.2s;
+        font-size: 14px;
+    }
+    .tab-btn.active { background: var(--bu-green); color: white; }
+
+    #sidebar-content { flex-grow: 1; padding: 20px; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+    #map { height: 100%; flex-grow: 1; position: relative; z-index: 1; }
+    
+    h2 { color: var(--bu-green); margin: 0 0 5px 0; font-size: 1.3em; letter-spacing: -0.5px; }
+    p { font-size: 0.85em; line-height: 1.4; color: var(--text-muted); margin: 5px 0; }
+
+    /* Card Styles */
+    .card { 
+        background: #fff; border: 1px solid #eee; padding: 15px; 
+        border-radius: 10px; margin-bottom: 15px; 
+        border-left: 5px solid var(--bu-green);
+        box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+    }
+    
+    /* Popups - CRITICAL MOBILE FIX */
+    .leaflet-popup-content-wrapper { border-radius: 12px; padding: 5px; }
+    .popup-form { width: 280px; max-width: 75vw; box-sizing: border-box; }
+    .popup-form label { font-size: 0.85em; font-weight: 600; display: inline-block; width: 100px; margin-top: 8px; }
+    .popup-form input, .popup-form textarea { 
+        font-size: 16px; /* Prevents iOS zoom */
+        border: 1px solid #ccc; border-radius: 4px; padding: 8px; width: 100%; box-sizing: border-box;
+    }
+    .popup-form input[type="number"] { width: 60px; display: inline-block; }
+    .popup-form button { 
+        background: var(--bu-green); color: white; border: none; 
+        padding: 12px; border-radius: 6px; cursor: pointer; 
+        width: 100%; margin-top: 10px; font-weight: 700; font-size: 16px;
+    }
+
+    /* RESPONSIVE IPHONE STYLES */
+    @media (max-width: 768px) {
+        body { flex-direction: column; }
+        #map { height: 45vh; height: 45dvh; width: 100%; order: 1; }
         #sidebar { 
-            width: 360px; height: 100vh; 
-            background: #fff; border-right: 2px solid var(--bu-green); 
-            display: flex; flex-direction: column; z-index: 10; 
+            width: 100%; height: 55vh; height: 55dvh; 
+            border-right: none; border-top: 3px solid var(--bu-green); 
+            order: 2; 
         }
-
-        #header-area {
-            padding: 25px;
-            background: var(--soft-green);
-            border-bottom: 1px solid #ddd;
-        }
-
-        .tab-container { display: flex; background: #eee; }
-        .tab-btn { 
-            flex: 1; padding: 12px; border: none; background: #eee; 
-            cursor: pointer; font-weight: 700; color: var(--bu-green);
-            font-family: 'Inter', sans-serif; transition: 0.2s;
-            font-size: 14px; /* Standard Desktop */
-        }
-        .tab-btn.active { background: var(--bu-green); color: white; }
-
-        #sidebar-content { flex-grow: 1; padding: 20px; overflow-y: auto; }
-        #map { height: 100vh; flex-grow: 1; position: relative; }
+        .tab-btn { padding: 14px; font-size: 15px; }
+        .popup-form { width: 240px; }
         
-        h2 { color: var(--bu-green); margin: 0 0 10px 0; font-size: 1.5em; letter-spacing: -0.5px; }
-        h3 { color: var(--bu-green); font-size: 0.9em; text-transform: uppercase; margin-top: 0; letter-spacing: 1px; }
-        p { font-size: 0.9em; line-height: 1.5; color: var(--text-muted); }
-
-        /* Card Styles */
-        .card { 
-            background: #fff; border: 1px solid #eee; padding: 15px; 
-            border-radius: 10px; margin-bottom: 15px; 
-            border-left: 5px solid var(--bu-green);
-            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
-        }
-        .leader-item { cursor: pointer; transition: 0.2s; }
-        .leader-item:hover { transform: translateY(-2px); box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
-        
-        .title-bold { font-weight: 700; font-size: 1.05em; display: block; margin-bottom: 5px; }
-        .score-row { font-size: 0.85em; font-weight: 600; color: var(--bu-green); }
-
-        /* Popups & Mobile Ergonomics */
-        .popup-form { min-width: 260px; padding: 5px; }
-        .popup-form label { font-size: 0.85em; font-weight: 600; display: inline-block; width: 110px; margin-top: 8px; }
-        
-        /* 16px font-size prevents iPhone auto-zoom */
-        .popup-form input, .popup-form textarea { 
-            font-size: 16px; 
-            border: 1px solid #ccc; border-radius: 4px; padding: 5px; 
-        }
-        .popup-form input[type="number"] { width: 45px; }
-        .popup-form textarea { width: 100%; height: 70px; margin-top: 10px; box-sizing: border-box; }
-        
-        .popup-form button { 
-            background: var(--bu-green); color: white; border: none; 
-            padding: 12px; border-radius: 6px; cursor: pointer; 
-            width: 100%; margin-top: 10px; font-weight: 700;
-            font-size: 16px;
-        }
-        
-        .review-block { border-top: 1px solid #eee; padding: 12px 0; margin-top: 10px; }
-        .review-meta { font-size: 0.75em; color: var(--bu-green); font-weight: 700; margin-bottom: 4px; }
-        .review-text { font-size: 0.9em; font-style: italic; color: #444; }
-        .review-img { 
-            width: 100%; border-radius: 8px; margin-top: 10px; 
-            display: block; border: 1px solid #ddd; 
-            box-shadow: 0 4px 10px rgba(0,0,0,0.1); 
-            cursor: pointer;
-        }
-
-        /* RESPONSIVE IPHONE STYLES */
-        @media (max-width: 768px) {
-            body { flex-direction: column; }
-            #sidebar { 
-                width: 100%; height: 50vh; 
-                border-right: none; border-top: 3px solid var(--bu-green); 
-                order: 2; 
-            }
-            #map { height: 50vh; width: 100%; order: 1; }
-            .tab-btn { padding: 16px; font-size: 16px; }
-            .popup-form { min-width: 80vw; }
-            #header-area { padding: 15px; }
-            h2 { font-size: 1.2em; }
-        }
-    </style>
+        /* Adjust Leaflet controls for small screens */
+        .leaflet-top .leaflet-control { margin-top: 10px; }
+        .leaflet-control-layers { font-size: 11px !important; }
+    }
+</style>
 </head>
 <body>
 
